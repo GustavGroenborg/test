@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> BALL GAME 3point0</title>
+        <meta charset="utf-8">
+        <style> 
+            * { /* The, "*," defines the style of the whole body apparently... */
+            padding: 0;
+            margin: 0;
+            background-color: #e6e6fa;
+            }
+
+            canvas {
+                background-color: #ffffff;
+                display: block;
+                margin: 0 auto;
+            }
+        </style>
+    </head>
+
+    <body>
+        <canvas id="myCanvas" width="480" height="320"></canvas> <!-- Defines the elements dimensions of the canvas-->
+
+        <script>
+/********************************* Variables ***************************************/
+            // Setting constants
+            const TEST_POINTS = false;
+
+            // Canvas variables
+            let canvas = document.getElementById("myCanvas");
+            let ctx = canvas.getContext("2d"); // Supposedly the context of the canvas?
+
+            // Ball Variables
+            let ball_radius = 10;
+            let ball_r2 = Math.pow(10, 2);
+
+            let a = canvas.width/2; // Defines the starting point of the ball.
+            let b = canvas.height-30; // Defines the starting point of the ball and -30 because who knows?
+            let dx = 2; // Still don't know what this is. Maybe it is the x-axis speed?
+            let dy = -2; // Still don't know what this is. Maybe it is the y-axis speed?
+
+            // Paddle variables
+            let paddle_height = 10;
+            let paddle_width = 75;
+            let paddle_x = (canvas.width-paddle_width)/2;
+
+            // Control variables
+            let right_pressed = false;
+            let left_pressed = false;
+
+            // Score and lives variables
+            let score = 0;
+            let highscore = 0;
+            let level = 1;
+            let lives = 3;
+
+            let hidden_score = 0;
+
+/****************************************************************** Construction of bricks ***************************************************************************************/
+            // Brick variables
+            let brick_row_count = 5;
+            let brick_column_count = 3;
+            let brick = {
+                width: 75,
+                height: 20,
+                padding: 10
+            }
+            let brick_offset = {
+                top: 30, // Determines the distance to the top.
+                left: 30 // Determines the distance to the left.
+            }
+            let bricks = [];
+                // For loop to construct the columns and rows
+                for (let i=0; i<brick_column_count; i++) { // Builds the columns
+                    bricks[i] = [];
+                        for (let j=0; j<brick_row_count; j++) { // builds the rows
+                            bricks[i][j] = {x: 0, y: 0, status: 1};
+                            // Outputs the location of all the bricks as: bricks[i][j] = {x: 0, y: 0, status: 1};
+                        }
+                }
+            
+            let brick_x;
+            let brick_y;
+
+            //Bricks construction
+            function drawBricks() {
+                for(let i=0; i<brick_column_count; i++) {
+                    for(let j=0; j<brick_row_count; j++) {
+                        if(bricks[i][j].status ==1) {
+                            // There is not written var or let before the to below variables to make them global variables.
+                            brick_x = (j*(brick.width+brick.padding))+brick_offset.left;
+                            brick_y = (i*(brick.height+brick.padding))+brick_offset.top;
+
+                            bricks[i][j].x = brick_x;
+                            bricks[i][j].y = brick_y;
+                            ctx.beginPath();
+                            ctx.rect(brick_x, brick_y, brick.width, brick.height);
+                            ctx.fillStyle = "#0095DD";
+                            ctx.fill();
+                            ctx.closePath();
+                            
+                        }
+                    }
+                }
+            } 
+
+/************************************************************ Defining the controls *********************************************/
+
+            document.addEventListener("keydown", key_down_handler, false); // Something, something the dark side. 
+            document.addEventListener("keyup", key_up_handler, false); // I'll probably figure it out at one point.
+            document.addEventListener("mousemove", mouse_move_handler, false);
+
+            // Handles when the key is pressed down
+            function key_down_handler(e) { // Why e? It might be possible to replace e with, "event."
+                if (e.keyCode == 39)  { // Why keyCode? The, "keyCode," function is called, from god know where, to return the number of the key.
+                    right_pressed = true; 
+                } else if (e.keyCode == 37) {
+                    left_pressed = true;
+                }
+            }
+
+            // Handles when the key is up.
+            function key_up_handler(e) {
+                if (e.keyCode == 39) {
+                    right_pressed = false;
+                } else if(e.keyCode == 37) {
+                    left_pressed = false;
+                }
+            }
+
+            // Let's the player use the mouse
+            function mouse_move_handler(e) { // Maybe e is for input?
+                let relative_x = e.clientX - canvas.offsetLeft; // clientX gives the x-coordinate of the pointer.
+                if (relative_x > 0 && relative_x < canvas.width) {
+                    paddle_x = relative_x - paddle_width/2;
+                    // console.log(e.clientX + canvas.offsetLeft); // Testing purposes
+                }
+            }
+
+/******************************************************** Collision detection ************************************************************/
+            /* If you do console.log(bricks); it wil output
+                            (3) […]
+​
+                                    0: (5) […]
+                                    ​​
+                                    0: Object { x: 30, y: 30, status: 1 }
+                                    ​​
+                                    1: Object { x: 115, y: 30, status: 1 }
+                                    ​​
+                                    2: Object { x: 200, y: 30, status: 1 }
+                                    ​​
+                                    3: Object { x: 285, y: 30, status: 1 }
+                                    ​​
+                                    4: Object { x: 370, y: 30, status: 1 }
+                                    ​​
+                                    length: 5
+                                    ​​
+                                    <prototype>: Array []
+                                    ​
+                                    1: (5) […]
+                                    ​​
+                                    0: Object { x: 30, y: 60, status: 1 }
+                                    ​​
+                                    1: Object { x: 115, y: 60, status: 1 }
+                                    ​​
+                                    2: Object { x: 200, y: 60, status: 1 }
+                                    ​​
+                                    3: Object { x: 285, y: 60, status: 1 }
+                                    ​​
+                                    4: Object { x: 370, y: 60, status: 1 }
+                                    ​​
+                                    length: 5
+                                    ​​
+                                    <prototype>: Array []
+                                    ​
+                                    2: (5) […]
+                                    ​​
+                                    0: Object { x: 30, y: 90, status: 1 }
+                                    ​​
+                                    1: Object { x: 115, y: 90, status: 1 }
+                                    ​​
+                                    2: Object { x: 200, y: 90, status: 1 }
+                                    ​​
+                                    3: Object { x: 285, y: 90, status: 1 }
+                                    ​​
+                                    4: Object { x: 370, y: 90, status: 1 }
+                                    ​​
+                                    length: 5
+                                    ​​
+                If you do: console.log(bricks[2]); It will then output:
+                                2: (5) […]
+                                    ​​
+                                    0: Object { x: 30, y: 90, status: 1 }
+                                    ​​
+                                    1: Object { x: 115, y: 90, status: 1 }
+                                    ​​
+                                    2: Object { x: 200, y: 90, status: 1 }
+                                    ​​
+                                    3: Object { x: 285, y: 90, status: 1 }
+                                    ​​
+                                    4: Object { x: 370, y: 90, status: 1 }
+                                    ​​
+                                    length: 5 
+                If you do: console.log(bricks[2][3]); It will then output:
+                                3: Object { x: 285, y: 90, status: 1 } */
+
+            function shit_goes_boom() {
+                for (let i=0; i<brick_column_count; i++) {
+                    for (let j=0; j<brick_row_count; j++) {
+                        let _bricks = bricks[i][j];
+                        if (_bricks.status == 1) {
+                            
+                            bricks[i][j].x = (j * (brick.width + brick.padding)) + brick_offset.left;
+                            bricks[i][j].y = (i * (brick.height + brick.padding)) + brick_offset.top;
+
+                            let x2 = bricks[i][j].x + brick.width;
+
+                            let x3 = bricks[i][j].x + brick.width;
+                            let y3 = bricks[i][j].y + brick.height;
+
+                            let y4 = bricks[i][j].y + brick.height;
+
+                                function dist(p,l) {
+                                    return Math.sqrt((Math.pow((a-p),2) + Math.pow((b-l),2)));
+                                }
+
+                                function _dist() { // Takes out the conditions from the if else statement below
+                                    if (dist(bricks[i][j].x,bricks[i][j].y) < ball_radius) {
+                                        return true;
+                                    } else if (dist(x2,bricks[i][j].y) < ball_radius) {
+                                        return true;
+                                    } else if (dist(x3,y3) < ball_radius)  {
+                                        return true;
+                                    } else if (dist(bricks[i][j].x,y4) < ball_radius) {
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
+                                }
+
+                                function col_flat_side() {
+                                    function dist_to_flat_top() {
+                                        let base = b - bricks[i][j].y;
+                                        let expo = Math.pow(base, 2);
+                                        return Math.sqrt(expo);
+                                        // return Math.sqrt(Math.pow((b - bricks[i][j].y), 2));
+                                    }
+                                    function dist_to_flat_bot() {
+                                        let base = b - (bricks[i][j].y + brick.height);
+                                        let expo = Math.pow(base, 2);
+                                        return Math.sqrt(expo);
+                                    }
+                                    if (bricks[i][j].x < a + ball_radius && a + ball_radius < x2  && dist_to_flat_bot() < ball_radius) {
+                                        console.log("Bottom hit: " + "\n" + "ball y: " + b + "\n" + "Brick bottom y: " + bricks[i][j].y);
+                                        return true;
+                                    } else if (bricks[i][j].x < a + ball_radius && a + ball_radius < bricks[i][j].x + brick.width && dist_to_flat_top() < ball_radius) {
+                                        console.log("Top hit: " + "\n" + "ball y: " + b + "\n" + "Brick top y: " + bricks[i][j].y);
+                                        return true;
+                                    } else { return false;}
+                                }
+
+                            if (_dist() == true || col_flat_side() == true) { // FIXME This part of the code needs an overhaul.
+                                dy = -dy;
+                                bricks[i][j].status = 0;
+                                if (score > highscore || score == highscore) {
+                                    hidden_score ++;
+                                    score ++;
+                                    highscore ++;
+                                } else { score ++;}
+                                
+                                    if (hidden_score == brick_row_count * brick_column_count) {
+                                        hidden_score = 0;
+                                        alert("You appear to have won the game!");
+                                        level ++;
+                                        // document.location.reload();
+                                        drawBricks();
+                                        requestAnimationFrame(draw);
+                                    }
+                                }
+                            }  // FIXME the upper fixme part stops here. // console.log("brick x: " + _bricks.x + "\n" + "brick y: " + _bricks.y);
+                            /*if(a > _bricks.x && a < _bricks.x + brick.width && b > _bricks.y && b < _bricks.y + brick.height) { // The collision detection itself
+                                dy = -dy;
+                                _bricks.status = 0;
+                                score++;
+                                    if (score == brick_row_count*brick_column_count){
+                                        alert("You have won the game!");
+                                        document.location.reload();
+                                        requestAnimationFram(draw);
+                                    } 
+                            } */
+                        } 
+                    }
+                }
+
+
+            
+        // Counting the score
+        function draw_score(){
+            ctx.font = "16px Times New Roman";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText("score: " + score, 8, 20); // fillText is used to set the text, and its' location, on the canvas.
+        }
+
+        // Drawing the score
+        function draw_highscore() { // Make it change colors later.
+            ctx.font = "16px Times New Roman";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText("Highscore: " + highscore, 75, 20);
+
+        }
+
+        // Drawing the level
+        function draw_level() {
+            ctx.font = "16px Times New roman";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText("Level: " + level, 175, 20);
+        }
+
+            //Constructing life system
+        function drawLives() {
+            ctx.font = "16px Times new roman";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText("lives: "+lives, canvas.width-65, 20);
+        }
+
+        //Ball construction
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(a, b, ball_radius, 0, Math.PI*2);
+            ctx.fillStyle = "#000000";//"#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        //Paddle construction
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddle_x, canvas.height-paddle_height, paddle_width, paddle_height);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function draw_arc() { // Testing purposes
+
+            if (TEST_POINTS == true) {
+                if (hidden_score == 0) {
+                for (let i= 0; i < brick_column_count; i++) {
+                    for (let j=0; j < brick_row_count; j++) {
+                        if (bricks[i][j].status == 1) {
+                            
+                            brick_x = (j*(brick.width+brick.padding))+brick_offset.left;
+                            brick_y = (i*(brick.height+brick.padding))+brick_offset.top;
+
+                            // Upper left corner
+                            ctx.beginPath();
+                            ctx.arc(brick_x, brick_y, 3, 0, Math.PI*2);
+                            ctx.fillStyle = "#000000";
+                            ctx.fill();
+                            ctx.closePath();
+
+                            // Upper right corner
+                            ctx.beginPath();
+                            ctx.arc((brick_x+brick.width), brick_y, 3, 0, Math.PI*2);
+                            ctx.fillStyle = "#7e7272";
+                            ctx.fill();
+                            ctx.closePath();
+
+                            // Lower left corner
+                            ctx.beginPath();
+                            ctx.arc(brick_x, (brick_y + brick.height), 3, 0, Math.PI*2);
+                            ctx.fillStyle = "#ff0000";
+                            ctx.fill();
+                            ctx.closePath();
+
+                            // Lower right corner
+                            ctx.beginPath();
+                            ctx.arc((brick_x+brick.width), (brick_y + brick.height), 3, 0, Math.PI * 2);
+                            ctx.fillStyle = "#004620";
+                            ctx.fill();
+                            ctx.closePath();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        //Construction of gamecanvas
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBricks();
+            drawBall();
+            drawPaddle();
+            draw_score();
+            draw_highscore();
+            draw_level();
+            drawLives();
+            shit_goes_boom();
+            draw_arc();
+
+            
+
+            if (a + dx > canvas.width-ball_radius || a + dx < ball_radius ) {
+                dx = -dx;
+            } if (b + dy < ball_radius) {
+                dy = -dy;
+                } else if(b + dy > canvas.height-ball_radius) {
+                    function dist_to_paddle() {
+                        let base = (b + ball_radius) - (canvas.height - paddle_height);
+                        let expo = Math.pow(base, 2);
+                        return Math.sqrt(expo);
+                    }
+
+                    // FIXME There is a problem with the ball registering not hit on the utmost right of the paddle.
+                    if (a + ball_radius > paddle_x && a + ball_radius < paddle_x + paddle_width && dist_to_paddle() < 100) {
+                        dy = -dy;
+                    } else {
+                        lives--;
+                            if(!lives) {
+                            alert("GAME OVER"); // TODO Have a look at this and make the level function work. I think that I might have to move this statement elsewhere.
+                            document.location.reload();
+                            requestAnimationFrame(draw);
+                            //requestAnimationFrame(draw) added instead ofclearInterval(interval);
+                            } else {
+                                a = canvas.width/2;
+                                b = canvas.height-30;
+                                dx = 2;
+                                dy = -2;
+                                paddle_x = (canvas.width-paddle_width)/2;
+                        }
+                    }
+                }
+            if(right_pressed && paddle_x < canvas.width-paddle_width) {
+                paddle_x += 7;
+            } else if(left_pressed && paddle_x > 0) {
+                paddle_x -= 7;
+            }
+            a += dx;
+            b += dy;
+            //console.log("Canvas width: " + canvas.width + "\n" + "ball x: " + a + "\n" + "ball y: " + b);
+          requestAnimationFrame(draw);
+        } draw();
+
+        </script>
+    </body>
+</html>
